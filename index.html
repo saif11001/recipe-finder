@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Recipe Finder App</title>
+    <link rel="stylesheet" href="style.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+      integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="top-controls">
+          <div class="theme-switcher" id="theme-switcher">
+            <button class="theme-dot" data-theme="orange" style="background:#ff7e5f" title="Orange"></button>
+            <button class="theme-dot" data-theme="green" style="background:#0ba360" title="Green"></button>
+            <button class="theme-dot" data-theme="blue" style="background:#2b8aee" title="Blue"></button>
+            <button class="theme-dot" data-theme="purple" style="background:#9b59b6" title="Purple"></button>
+            <button class="theme-dot" data-theme="dark" style="background:#2c2c2c" title="Dark"></button>
+          </div>
+          <button id="lang-toggle" class="lang-toggle">
+            <i class="fas fa-language"></i> <span id="lang-label">AR</span>
+          </button>
+        </div>
+
+        <h1><i class="fas fa-utensils"></i> <span data-i18n="title">Recipe Finder</span></h1>
+        <p data-i18n="subtitle">Find delicious recipes from around the world</p>
+      </header>
+
+      <p class="api-link">
+        <span data-i18n="dataFrom">Data from</span>
+        <a href="https://www.themealdb.com/api.php">TheMealDB 🧑‍🍳</a>
+      </p>
+
+      <div class="search-container">
+        <input type="text" id="search-input" data-i18n-placeholder="searchPlaceholder" placeholder="Search for meals or keywords" />
+        <button id="search-btn" data-i18n="searchBtn">Search</button>
+      </div>
+
+      <div id="error-container" class="hidden">
+        <p data-i18n="noMeals">No meals found. Try another search term!</p>
+      </div>
+
+      <div id="result-heading"></div>
+
+      <div id="meals" class="meals-container"></div>
+
+      <div id="meal-details" class="hidden">
+        <button id="back-btn"><i class="fas fa-arrow-left"></i> <span data-i18n="backBtn">Back to recipes</span></button>
+
+        <div class="meal-details-content"></div>
+      </div>
+    </div>
+
+    <script src="i18n.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>
