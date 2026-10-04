@@ -39,10 +39,28 @@ const translations = {
   },
 };
 
-let currentLang = localStorage.getItem("lang") || "en";
+// localStorage can throw on iOS Safari (e.g. "Block All Cookies"), so wrap it
+function storageGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch (err) {
+    return null;
+  }
+}
+
+function storageSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (err) {
+    /* ignore */
+  }
+}
+
+let currentLang = storageGet("lang");
+if (!translations[currentLang]) currentLang = "en";
 
 function t(key, ...args) {
-  const entry = translations[currentLang][key];
+  const entry = translations[currentLang][key] || translations.en[key];
   return typeof entry === "function" ? entry(...args) : entry;
 }
 
@@ -70,48 +88,88 @@ function applyStaticTranslations() {
 
 function setLanguage(lang) {
   currentLang = lang;
-  localStorage.setItem("lang", lang);
+  storageSet("lang", lang);
   applyStaticTranslations();
 }
 
 const MYMEMORY_URL = "https://api.mymemory.translated.net/get";
 
-async function translateText(text, targetLang) {
-  if (!text || targetLang === "en") return text;
+// Remember successful translations so toggling languages doesn't re-request them
+const translationCache = new Map();
 
-  const sourceLang = "en";
-  const langPair = `${sourceLang}|${targetLang}`;
-  const chunks = splitIntoChunks(text, 450);
+// MyMemory sometimes returns HTML entities (e.g. &#39;). Turn them back into plain text.
+function decodeEntities(str) {
+  const doc = new DOMParser().parseFromString(str, "text/html");
+  return doc.documentElement.textContent || "";
+}
 
+// Returns the translated text, or null if the translation failed
+async function translateChunk(chunk, langPair) {
   try {
-    const translatedChunks = await Promise.all(
-      chunks.map((chunk) =>
-        fetch(`${MYMEMORY_URL}?q=${encodeURIComponent(chunk)}&langpair=${langPair}`)
-          .then((res) => res.json())
-          .then((data) => data?.responseData?.translatedText || chunk)
-          .catch(() => chunk)
-      )
-    );
-    return translatedChunks.join(" ");
+    const res = await fetch(`${MYMEMORY_URL}?q=${encodeURIComponent(chunk)}&langpair=${langPair}`);
+    const data = await res.json();
+    const translated = data?.responseData?.translatedText;
+
+    // When the free daily quota is used up, MyMemory still answers with a warning text.
+    // Only accept the answer when the status is 200.
+    if (Number(data?.responseStatus) === 200 && translated && !/MYMEMORY WARNING/i.test(translated)) {
+      return decodeEntities(translated);
+    }
+    return null;
   } catch (err) {
-    console.error("Translation failed:", err);
-    return text;
+    return null;
   }
 }
 
+async function translateText(text, targetLang) {
+  if (!text || !String(text).trim() || targetLang === "en") return text;
+
+  const cacheKey = `${targetLang}|${text}`;
+  if (translationCache.has(cacheKey)) return translationCache.get(cacheKey);
+
+  const chunks = splitIntoChunks(text, 450);
+  const parts = await Promise.all(chunks.map((chunk) => translateChunk(chunk, `en|${targetLang}`)));
+
+  const allTranslated = parts.every((part) => part !== null);
+  const result = parts.map((part, i) => (part !== null ? part : chunks[i])).join(" ");
+
+  if (allTranslated) translationCache.set(cacheKey, result);
+  return result;
+}
+
+// Splits text into pieces below maxLen characters (MyMemory accepts ~500 per request).
+// Note: no regex lookbehind here, because iOS Safari older than 16.4 can't parse it.
 function splitIntoChunks(text, maxLen) {
-  const sentences = text.split(/(?<=[.!?])\s+/);
+  const sentences = text.match(/[\s\S]+?(?:[.!?]+(?=\s|$)|$)\s*/g) || [text];
   const chunks = [];
   let current = "";
 
   for (const sentence of sentences) {
+    // a single very long sentence: split it by words
+    if (sentence.length > maxLen) {
+      if (current.trim()) chunks.push(current.trim());
+      current = "";
+
+      let part = "";
+      for (const word of sentence.split(/\s+/)) {
+        if ((part + " " + word).length > maxLen) {
+          if (part.trim()) chunks.push(part.trim());
+          part = word;
+        } else {
+          part += " " + word;
+        }
+      }
+      if (part.trim()) chunks.push(part.trim());
+      continue;
+    }
+
     if ((current + sentence).length > maxLen) {
-      if (current) chunks.push(current.trim());
+      if (current.trim()) chunks.push(current.trim());
       current = sentence;
     } else {
-      current += " " + sentence;
+      current += sentence;
     }
   }
-  if (current) chunks.push(current.trim());
+  if (current.trim()) chunks.push(current.trim());
   return chunks.length ? chunks : [text];
 }

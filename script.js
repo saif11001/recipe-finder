@@ -17,6 +17,34 @@ const LOOKUP_URL = `${BASE_URL}lookup.php?i=`;
 let lastSearchTerm = "";
 let lastMeals = [];
 let lastSelectedMeal = null;
+let currentError = null; // { key, args } so the message can be re-translated
+
+// Tokens: used to ignore slow responses that arrive after a newer request
+let searchToken = 0;
+let cardsToken = 0;
+let clickToken = 0;
+let detailsToken = 0;
+
+// Escape text before putting it inside innerHTML
+function escapeHTML(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function showError(key, ...args) {
+  currentError = { key, args };
+  errorContainer.textContent = t(key, ...args);
+  errorContainer.classList.remove("hidden");
+}
+
+function hideError() {
+  currentError = null;
+  errorContainer.classList.add("hidden");
+}
 
 searchBtn.addEventListener("click", searchMeals);
 
@@ -27,13 +55,13 @@ backBtn.addEventListener("click", () => {
   window.scrollTo({ top: 0, behavior: "smooth" });
 });
 
-searchInput.addEventListener("keypress", (e) => {
+searchInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") searchMeals();
 });
 
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
-  localStorage.setItem("theme", theme);
+  storageSet("theme", theme);
 
   themeSwitcher.querySelectorAll(".theme-dot").forEach((dot) => {
     dot.classList.toggle("active", dot.dataset.theme === theme);
@@ -46,7 +74,7 @@ themeSwitcher.addEventListener("click", (e) => {
   applyTheme(dot.dataset.theme);
 });
 
-applyTheme(localStorage.getItem("theme") || "orange");
+applyTheme(storageGet("theme") || "orange");
 
 langToggle.addEventListener("click", async () => {
   const newLang = currentLang === "en" ? "ar" : "en";
@@ -57,6 +85,10 @@ langToggle.addEventListener("click", async () => {
 applyStaticTranslations();
 
 async function retranslateDynamicContent() {
+  if (currentError && !errorContainer.classList.contains("hidden")) {
+    errorContainer.textContent = t(currentError.key, ...currentError.args);
+  }
+
   if (!mealDetails.classList.contains("hidden") && lastSelectedMeal) {
     await renderMealDetails(lastSelectedMeal);
   } else if (lastMeals.length) {
@@ -71,39 +103,44 @@ async function searchMeals() {
   const searchTerm = searchInput.value.trim();
 
   if (!searchTerm) {
-    errorContainer.textContent = t("pleaseEnter");
-    errorContainer.classList.remove("hidden");
+    showError("pleaseEnter");
     return;
   }
+
+  const token = ++searchToken;
 
   try {
     resultHeading.textContent = t("searching", searchTerm);
     mealsContainer.innerHTML = "";
-    errorContainer.classList.add("hidden");
+    hideError();
 
-    const response = await fetch(`${SEARCH_URL}${searchTerm}`);
+    const response = await fetch(`${SEARCH_URL}${encodeURIComponent(searchTerm)}`);
     const data = await response.json();
+
+    if (token !== searchToken) return;
 
     if (data.meals === null) {
       resultHeading.textContent = "";
       mealsContainer.innerHTML = "";
       lastMeals = [];
-      errorContainer.textContent = t("notFoundFor", searchTerm);
-      errorContainer.classList.remove("hidden");
+      showError("notFoundFor", searchTerm);
     } else {
       lastSearchTerm = searchTerm;
       lastMeals = data.meals;
       resultHeading.textContent = t("resultsFor", searchTerm);
       await renderMealCards(data.meals);
+      if (token !== searchToken) return;
       searchInput.value = "";
     }
   } catch (error) {
-    errorContainer.textContent = t("genericError");
-    errorContainer.classList.remove("hidden");
+    if (token !== searchToken) return;
+    resultHeading.textContent = "";
+    showError("genericError");
   }
 }
 
 async function renderMealCards(meals) {
+  const token = ++cardsToken;
   mealsContainer.innerHTML = "";
 
   const cards = await Promise.all(
@@ -119,16 +156,19 @@ async function renderMealCards(meals) {
       }
 
       return `
-        <div class="meal" data-meal-id="${meal.idMeal}">
-          <img src="${meal.strMealThumb}" alt="${meal.strMeal}">
+        <div class="meal" data-meal-id="${escapeHTML(meal.idMeal)}">
+          <img src="${escapeHTML(meal.strMealThumb)}" alt="${escapeHTML(meal.strMeal)}" loading="lazy">
           <div class="meal-info">
-            <h3 class="meal-title">${title}</h3>
-            ${category ? `<div class="meal-category">${category}</div>` : ""}
+            <h3 class="meal-title">${escapeHTML(title)}</h3>
+            ${category ? `<div class="meal-category">${escapeHTML(category)}</div>` : ""}
           </div>
         </div>
       `;
     })
   );
+
+  // a newer render started while we were translating: drop this one
+  if (token !== cardsToken) return;
 
   mealsContainer.innerHTML = cards.join("");
 }
@@ -138,32 +178,39 @@ async function handleMealClick(e) {
   if (!mealEl) return;
 
   const mealId = mealEl.getAttribute("data-meal-id");
+  const token = ++clickToken;
 
   try {
-    const response = await fetch(`${LOOKUP_URL}${mealId}`);
+    const response = await fetch(`${LOOKUP_URL}${encodeURIComponent(mealId)}`);
     const data = await response.json();
+
+    if (token !== clickToken) return;
 
     if (data.meals && data.meals[0]) {
       lastSelectedMeal = data.meals[0];
       await renderMealDetails(lastSelectedMeal);
 
+      if (token !== clickToken) return;
+
       mealDetails.classList.remove("hidden");
       mealDetails.scrollIntoView({ behavior: "smooth" });
     }
   } catch (error) {
-    errorContainer.textContent = t("detailsError");
-    errorContainer.classList.remove("hidden");
+    if (token !== clickToken) return;
+    showError("detailsError");
   }
 }
 
 async function renderMealDetails(meal) {
+  const token = ++detailsToken;
   const ingredients = [];
 
   for (let i = 1; i <= 20; i++) {
-    if (meal[`strIngredient${i}`] && meal[`strIngredient${i}`].trim() !== "") {
+    const name = meal[`strIngredient${i}`];
+    if (name && name.trim() !== "") {
       ingredients.push({
-        ingredient: meal[`strIngredient${i}`],
-        measure: meal[`strMeasure${i}`],
+        ingredient: name.trim(),
+        measure: (meal[`strMeasure${i}`] || "").trim(),
       });
     }
   }
@@ -191,15 +238,20 @@ async function renderMealDetails(meal) {
     measures = translatedMeasures;
   }
 
+  // a newer render started while we were translating: drop this one
+  if (token !== detailsToken) return;
+
+  const youtubeUrl = /^https?:\/\//i.test(meal.strYoutube || "") ? meal.strYoutube : "";
+
   mealDetailsContent.innerHTML = `
-       <img src="${meal.strMealThumb}" alt="${meal.strMeal}" class="meal-details-img">
-       <h2 class="meal-details-title">${title}</h2>
+       <img src="${escapeHTML(meal.strMealThumb)}" alt="${escapeHTML(meal.strMeal)}" class="meal-details-img">
+       <h2 class="meal-details-title">${escapeHTML(title)}</h2>
        <div class="meal-details-category">
-         <span>${category}</span>
+         <span>${escapeHTML(category)}</span>
        </div>
        <div class="meal-details-instructions">
          <h3>${t("instructions")}</h3>
-         <p>${instructions}</p>
+         <p>${escapeHTML(instructions)}</p>
        </div>
        <div class="meal-details-ingredients">
          <h3>${t("ingredients")}</h3>
@@ -207,16 +259,16 @@ async function renderMealDetails(meal) {
            ${ingredientNames
              .map(
                (name, i) => `
-             <li><i class="fas fa-check-circle"></i> ${measures[i]} ${name}</li>
+             <li><i class="fas fa-check-circle"></i> ${escapeHTML([measures[i], name].filter(Boolean).join(" "))}</li>
            `
              )
              .join("")}
          </ul>
        </div>
        ${
-         meal.strYoutube
+         youtubeUrl
            ? `
-         <a href="${meal.strYoutube}" target="_blank" class="youtube-link">
+         <a href="${escapeHTML(youtubeUrl)}" target="_blank" rel="noopener noreferrer" class="youtube-link">
            <i class="fab fa-youtube"></i> ${t("watchVideo")}
          </a>
        `
