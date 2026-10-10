@@ -160,10 +160,23 @@ header {
   cursor: pointer;
   transition: var(--transition);
   box-shadow: none;
+  position: relative;
 }
 
-.theme-dot:hover {
-  transform: scale(1.2);
+/* bigger invisible tap area for fingers, the dot itself keeps its size */
+.theme-dot::after {
+  content: "";
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  left: -4px;
+  right: -4px;
+}
+
+@media (hover: hover) {
+  .theme-dot:hover {
+    transform: scale(1.2);
+  }
 }
 
 .theme-dot.active {
@@ -186,11 +199,13 @@ header {
   letter-spacing: 0.02em;
 }
 
-.lang-toggle:hover {
-  background-color: var(--primary);
-  color: var(--on-primary);
-  box-shadow: var(--shadow-hover);
-  transform: translateY(-2px);
+@media (hover: hover) {
+  .lang-toggle:hover {
+    background-color: var(--primary);
+    color: var(--on-primary);
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-2px);
+  }
 }
 
 h1 {
@@ -286,10 +301,12 @@ button {
   letter-spacing: 0.01em;
 }
 
-button:hover {
-  background-color: var(--primary-dark);
-  box-shadow: var(--shadow-hover);
-  transform: translateY(-2px);
+@media (hover: hover) {
+  button:hover {
+    background-color: var(--primary-dark);
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-2px);
+  }
 }
 
 button:active {
@@ -324,6 +341,7 @@ button:active {
   overflow: hidden;
   transition: var(--transition);
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   position: relative;
   /* "backwards" (not "forwards") so the hover lift below still works after the intro animation */
   animation: card-in 0.6s ease backwards;
@@ -347,9 +365,23 @@ button:active {
   }
 }
 
-.meal:hover {
-  transform: translateY(-8px);
-  box-shadow: var(--shadow-hover);
+@media (hover: hover) {
+  .meal:hover {
+    transform: translateY(-8px);
+    box-shadow: var(--shadow-hover);
+  }
+}
+
+.meal.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* touch screens: quick press feedback instead of a hover effect that sticks after a tap */
+@media (hover: none) {
+  .meal:active {
+    transform: scale(0.98);
+  }
 }
 
 .meal img {
@@ -432,9 +464,11 @@ button:active {
   gap: 8px;
 }
 
-#back-btn:hover {
-  background-color: var(--primary);
-  color: var(--on-primary);
+@media (hover: hover) {
+  #back-btn:hover {
+    background-color: var(--primary);
+    color: var(--on-primary);
+  }
 }
 
 [dir="rtl"] #back-btn i {
@@ -524,9 +558,11 @@ button:active {
   transition: var(--transition);
 }
 
-.ingredients-list li:hover {
-  background-color: var(--primary-light);
-  transform: translateY(-2px);
+@media (hover: hover) {
+  .ingredients-list li:hover {
+    background-color: var(--primary-light);
+    transform: translateY(-2px);
+  }
 }
 
 .ingredients-list li i {
@@ -555,9 +591,11 @@ button:active {
   transition: var(--transition);
 }
 
-.youtube-link:hover {
-  box-shadow: 0 18px 34px -10px rgba(255, 44, 44, 0.6);
-  transform: translateY(-3px);
+@media (hover: hover) {
+  .youtube-link:hover {
+    box-shadow: 0 18px 34px -10px rgba(255, 44, 44, 0.6);
+    transform: translateY(-3px);
+  }
 }
 
 .youtube-link i {
