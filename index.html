@@ -4,6 +4,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Recipe Finder App</title>
+    <meta name="description" content="Search recipes from around the world, in English or Arabic, with five color themes." />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🍳%3C/text%3E%3C/svg%3E" />
+    <script>
+      // Apply the saved theme and language before the page paints, so there is no flash on load
+      (function () {
+        try {
+          var theme = localStorage.getItem("theme");
+          if (["orange", "green", "blue", "purple", "dark"].indexOf(theme) !== -1) {
+            document.documentElement.setAttribute("data-theme", theme);
+          }
+          if (localStorage.getItem("lang") === "ar") {
+            document.documentElement.lang = "ar";
+            document.documentElement.dir = "rtl";
+          }
+        } catch (e) {}
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -24,11 +41,11 @@
       <header>
         <div class="top-controls">
           <div class="theme-switcher" id="theme-switcher">
-            <button class="theme-dot" data-theme="orange" style="background:#ff7e5f" title="Orange"></button>
-            <button class="theme-dot" data-theme="green" style="background:#0ba360" title="Green"></button>
-            <button class="theme-dot" data-theme="blue" style="background:#2b8aee" title="Blue"></button>
-            <button class="theme-dot" data-theme="purple" style="background:#9b59b6" title="Purple"></button>
-            <button class="theme-dot" data-theme="dark" style="background:#2c2c2c" title="Dark"></button>
+            <button class="theme-dot" data-theme="orange" style="background:#ff7e5f" title="Orange" aria-label="Orange theme"></button>
+            <button class="theme-dot" data-theme="green" style="background:#0ba360" title="Green" aria-label="Green theme"></button>
+            <button class="theme-dot" data-theme="blue" style="background:#2b8aee" title="Blue" aria-label="Blue theme"></button>
+            <button class="theme-dot" data-theme="purple" style="background:#9b59b6" title="Purple" aria-label="Purple theme"></button>
+            <button class="theme-dot" data-theme="dark" style="background:#2c2c2c" title="Dark" aria-label="Dark theme"></button>
           </div>
           <button id="lang-toggle" class="lang-toggle">
             <i class="fas fa-language"></i> <span id="lang-label">AR</span>
@@ -45,7 +62,7 @@
       </p>
 
       <div class="search-container">
-        <input type="text" id="search-input" data-i18n-placeholder="searchPlaceholder" placeholder="Search for meals or keywords" />
+        <input type="text" id="search-input" enterkeyhint="search" data-i18n-placeholder="searchPlaceholder" placeholder="Search for meals or keywords" />
         <button id="search-btn" data-i18n="searchBtn">Search</button>
       </div>
 
