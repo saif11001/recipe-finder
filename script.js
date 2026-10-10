@@ -39,6 +39,8 @@ function showError(key, ...args) {
   currentError = { key, args };
   errorContainer.textContent = t(key, ...args);
   errorContainer.classList.remove("hidden");
+  // the message sits at the top of the page: bring it into view so the user always sees it
+  errorContainer.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function hideError() {
@@ -106,6 +108,9 @@ async function searchMeals() {
     showError("pleaseEnter");
     return;
   }
+
+  // close the on-screen keyboard so the results are visible (iOS keeps it open after tapping the button)
+  searchInput.blur();
 
   const token = ++searchToken;
 
@@ -179,6 +184,7 @@ async function handleMealClick(e) {
 
   const mealId = mealEl.getAttribute("data-meal-id");
   const token = ++clickToken;
+  mealEl.classList.add("loading");
 
   try {
     const response = await fetch(`${LOOKUP_URL}${encodeURIComponent(mealId)}`);
@@ -192,12 +198,15 @@ async function handleMealClick(e) {
 
       if (token !== clickToken) return;
 
+      hideError();
       mealDetails.classList.remove("hidden");
       mealDetails.scrollIntoView({ behavior: "smooth" });
     }
   } catch (error) {
     if (token !== clickToken) return;
     showError("detailsError");
+  } finally {
+    mealEl.classList.remove("loading");
   }
 }
 
